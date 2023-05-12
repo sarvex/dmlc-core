@@ -44,23 +44,21 @@ def main():
     if cluster == 'sge':
         num_worker = int(env['DMLC_NUM_WORKER'])
         task_id = int(env['DMLC_TASK_ID'])
-        if task_id < num_worker:
-            env['DMLC_ROLE'] = 'worker'
-        else:
-            env['DMLC_ROLE'] = 'server'
-
+        env['DMLC_ROLE'] = 'worker' if task_id < num_worker else 'server'
     if hadoop_home:
-        library_path.append('%s/lib/native' % hdfs_home)
-        library_path.append('%s/lib' % hdfs_home)
-        (classpath, _) = subprocess.Popen('%s/bin/hadoop classpath' % hadoop_home,
-                                          stdout=subprocess.PIPE, shell=True,
-                                          env=os.environ).communicate()
+        library_path.extend((f'{hdfs_home}/lib/native', f'{hdfs_home}/lib'))
+        (classpath, _) = subprocess.Popen(
+            f'{hadoop_home}/bin/hadoop classpath',
+            stdout=subprocess.PIPE,
+            shell=True,
+            env=os.environ,
+        ).communicate()
         classpath = py_str(class_path)
         for f in classpath.split(':'):
             class_path += glob.glob(f)
 
     if java_home:
-        library_path.append('%s/jre/lib/amd64/server' % java_home)
+        library_path.append(f'{java_home}/jre/lib/amd64/server')
 
     env['CLASSPATH'] = '${CLASSPATH}:' + (':'.join(class_path))
 
@@ -70,8 +68,8 @@ def main():
     elif 'LIBHDFS_OPTS' not in env:
         env['LIBHDFS_OPTS'] = '--Xmx128m'
 
-    LD_LIBRARY_PATH = env['LD_LIBRARY_PATH'] if 'LD_LIBRARY_PATH' in env else ''
-    env['LD_LIBRARY_PATH'] = LD_LIBRARY_PATH + ':' + ':'.join(library_path)
+    LD_LIBRARY_PATH = env.get('LD_LIBRARY_PATH', '')
+    env['LD_LIBRARY_PATH'] = f'{LD_LIBRARY_PATH}:' + ':'.join(library_path)
 
     # unzip the archives.
     if 'DMLC_JOB_ARCHIVES' in env:

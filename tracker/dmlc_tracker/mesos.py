@@ -37,9 +37,9 @@ except ImportError:
 
         name = str(uuid.uuid4())
         cwd = os.getcwd()
-        prog = "cd %s && %s" % (cwd, prog)
+        prog = f"cd {cwd} && {prog}"
 
-        resources = ';'.join('%s:%s' % (k, v) for k, v in resources.items())
+        resources = ';'.join(f'{k}:{v}' for k, v in resources.items())
         prog = prog.replace('\'', '\\\'')
         env = json.dumps(env).replace('\'', '\\\'')
         resources = resources.replace('\'', '\\\'')
@@ -59,7 +59,7 @@ except ImportError:
 
 def get_env():
     # get system envs
-    keys = set(['OMP_NUM_THREADS', 'KMP_AFFINITY', 'LD_LIBRARY_PATH'])
+    keys = {'OMP_NUM_THREADS', 'KMP_AFFINITY', 'LD_LIBRARY_PATH'}
     return {k: v for k, v in os.environ.items() if k in keys}
 
 

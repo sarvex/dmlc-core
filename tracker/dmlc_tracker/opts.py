@@ -53,7 +53,7 @@ def get_memory_mb(mem_str):
     elif mem_str.endswith('m'):
         return int(float(mem_str[:-1]))
     else:
-        msg = 'Invalid memory specification %s, need to be a number follows g or m' % mem_str
+        msg = f'Invalid memory specification {mem_str}, need to be a number follows g or m'
         raise RuntimeError(msg)
 
 

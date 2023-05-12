@@ -18,7 +18,7 @@ def get_mpi_env(envs):
     # windows hack: we will use msmpi
     if sys.platform == 'win32':
         for k, v in envs.items():
-            cmd += ' -env %s %s' % (k, str(v))
+            cmd += f' -env {k} {str(v)}'
         return cmd
 
     # decide MPI version.
@@ -27,10 +27,10 @@ def get_mpi_env(envs):
                                   stderr=subprocess.PIPE).communicate()
     if b'Open MPI' in out:
         for k, v in envs.items():
-            cmd += ' -x %s=%s' % (k, str(v))
+            cmd += f' -x {k}={str(v)}'
     elif b'mpich' in out:
         for k, v in envs.items():
-            cmd += ' -env %s %s' % (k, str(v))
+            cmd += f' -env {k} {str(v)}'
     else:
         raise RuntimeError('Unknown MPI Version')
     return cmd
@@ -46,7 +46,7 @@ def submit(args):
 
         cmd = ''
         if args.host_file is not None:
-            cmd = '--hostfile %s ' % (args.host_file)
+            cmd = f'--hostfile {args.host_file} '
         cmd += ' ' + ' '.join(args.command)
 
         pass_envs['DMLC_JOB_CLUSTER'] = 'mpi'
@@ -75,6 +75,7 @@ def submit(args):
             thread = Thread(target=run, args=(prog,))
             thread.setDaemon(True)
             thread.start()
+
 
 
     tracker.submit(args.num_workers, args.num_servers,

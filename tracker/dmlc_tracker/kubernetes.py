@@ -32,8 +32,7 @@ def create_svc_manifest(name, port, target_port):
             selector={"app": name},
             ports=[client.V1ServicePort(protocol="TCP", port=port, target_port=target_port)]
             )
-    service = client.V1Service( metadata=client.V1ObjectMeta(name=name), spec=spec)
-    return service
+    return client.V1Service( metadata=client.V1ObjectMeta(name=name), spec=spec)
 def create_sched_svc_manifest(name, port):
     return create_svc_manifest(name, port, port)
 
@@ -66,9 +65,9 @@ def create_ps_manifest( ps_id, ps_num, job_name, envs, image, commands, template
     envs.append( client.V1EnvVar( name="DMLC_SERVER_ID", value=ps_id ))
     envs.append( client.V1EnvVar( name="DMLC_ROLE", value="server" ))
     if job_name is not None:
-        name = "mx-" + job_name + "-server-" + ps_id
+        name = f"mx-{job_name}-server-{ps_id}"
     else:
-        name = "mx-server-" + ps_id
+        name = f"mx-server-{ps_id}"
     return create_job_manifest(envs, commands, name, image, template_file )
 
 def create_wk_manifest( wk_id, wk_num, ps_num, job_name, envs, image, commands, template_file ):
@@ -76,23 +75,18 @@ def create_wk_manifest( wk_id, wk_num, ps_num, job_name, envs, image, commands, 
     envs.append( client.V1EnvVar( name="DMLC_SERVER_ID", value="0" ))
     envs.append( client.V1EnvVar( name="DMLC_ROLE", value="worker" ))
     if job_name is not None:
-        name = "mx-" + job_name + "-worker-" + wk_id
+        name = f"mx-{job_name}-worker-{wk_id}"
     else:
-        name = "mx-worker-" + wk_id
+        name = f"mx-worker-{wk_id}"
     return create_job_manifest(envs, commands, name, image, template_file )
 
 def create_sched_job_manifest( wk_num, ps_num, envs, image,  commands):
     envs.append( client.V1EnvVar( name="DMLC_ROLE", value="scheduler" ))
-    name = ""
-    for i in envs:
-        if i.name == "DMLC_PS_ROOT_URI":
-            name = i.value
-            break
+    name = next((i.value for i in envs if i.name == "DMLC_PS_ROOT_URI"), "")
     return create_job_manifest(envs, commands, name, image, None )
     
 def create_env(root_uri, root_port, sv_num, wk_num ):
-    envs = []
-    envs.append( client.V1EnvVar( name="DMLC_PS_ROOT_URI", value=root_uri))
+    envs = [client.V1EnvVar(name="DMLC_PS_ROOT_URI", value=root_uri)]
     envs.append( client.V1EnvVar( name="DMLC_PS_ROOT_PORT", value=str(root_port)))
     envs.append( client.V1EnvVar( name="DMLC_NUM_SERVER", value=str(sv_num)))
     envs.append( client.V1EnvVar( name="DMLC_NUM_WORKER", value=str(wk_num)))
@@ -103,16 +97,13 @@ def submit(args):
     def kubernetes_submit(nworker, nserver, pass_envs):
         sv_image = args.kube_server_image
         wk_image = args.kube_worker_image
-        if args.jobname is not None:
-            r_uri = "mx-" + args.jobname + "-sched"
-        else:
-            r_uri = "mx-sched"
+        r_uri = f"mx-{args.jobname}-sched" if args.jobname is not None else "mx-sched"
         r_port = 9091
         sd_envs = create_env( r_uri, r_port, nserver, nworker )
         mn_jobs = []
         mn_sh_job = create_sched_job_manifest( str(nworker), str(nserver), sd_envs, sv_image, args.command)
         mn_sh_svc = create_sched_svc_manifest(r_uri, r_port)
-        
+
         for i in range(nserver):
             envs = create_env( r_uri, r_port, nserver, nworker )
             mn_sv = create_ps_manifest( str(i), str(nserver), args.jobname, envs, sv_image, args.command, args.kube_server_template )
@@ -127,13 +118,13 @@ def submit(args):
         k8s_coreapi = client.CoreV1Api()
         k8s_batch = client.BatchV1Api()
         resp = k8s_batch.create_namespaced_job(namespace=args.kube_namespace, body=mn_sh_job)
-        print( resp.kind + " " + resp.metadata.name +" is created." )
+        print(f"{resp.kind} {resp.metadata.name} is created.")
         resp = k8s_coreapi.create_namespaced_service(namespace="default", body=mn_sh_svc)
-        print( resp.kind + " " + resp.metadata.name +" is created." )
+        print(f"{resp.kind} {resp.metadata.name} is created.")
         for m in mn_jobs:
             resp = k8s_batch.create_namespaced_job(
                     body=m, namespace="default")
-            print( resp.kind + " " + resp.metadata.name +" is created." )
+            print(f"{resp.kind} {resp.metadata.name} is created.")
 
 
         return kubernetes_submit

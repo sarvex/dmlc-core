@@ -37,25 +37,27 @@ def yarn_submit(args, nworker, nserver, pass_env):
 
     if not os.path.exists(YARN_JAR_PATH):
         warnings.warn("cannot find \"%s\", I will try to run build" % YARN_JAR_PATH)
-        cmd = 'cd %s;./build.%s' % \
-              (os.path.join(os.path.dirname(__file__), os.pardir, 'yarn'),
-               'bat' if is_windows else 'sh')
+        cmd = f"cd {os.path.join(os.path.dirname(__file__), os.pardir, 'yarn')};./build.{'bat' if is_windows else 'sh'}"
         print(cmd)
         subprocess.check_call(cmd, shell=True, env=os.environ)
         assert os.path.exists(YARN_JAR_PATH), "failed to build dmlc-yarn.jar, try it manually"
 
     # detech hadoop version
-    (out, _) = subprocess.Popen('%s version' % hadoop_binary,
-                                shell=True, stdout=subprocess.PIPE).communicate()
+    (out, _) = subprocess.Popen(
+        f'{hadoop_binary} version', shell=True, stdout=subprocess.PIPE
+    ).communicate()
     out = py_str(out).split('\n')[0].split()
     assert out[0] == 'Hadoop', 'cannot parse hadoop version string'
     hadoop_version = int(out[1].split('.')[0])
-    (classpath, _) = subprocess.Popen('%s classpath' % hadoop_binary,
-                                      shell=True, stdout=subprocess.PIPE).communicate()
+    (classpath, _) = subprocess.Popen(
+        f'{hadoop_binary} classpath', shell=True, stdout=subprocess.PIPE
+    ).communicate()
     classpath = py_str(classpath).strip()
 
     if hadoop_version < 2:
-        raise RuntimeError('Hadoop Version is %s, dmlc_yarn will need Yarn(Hadoop 2.0)' % out[1])
+        raise RuntimeError(
+            f'Hadoop Version is {out[1]}, dmlc_yarn will need Yarn(Hadoop 2.0)'
+        )
 
     fset, new_command = opts.get_cache_file_set(args)
     fset.add(YARN_JAR_PATH)
@@ -67,12 +69,8 @@ def yarn_submit(args, nworker, nserver, pass_env):
         ar_list.append(os.path.basename(fname))
 
     JAVA_HOME = os.getenv('JAVA_HOME')
-    if JAVA_HOME is None:
-        JAVA = 'java'
-    else:
-        JAVA = os.path.join(JAVA_HOME, 'bin', 'java')
-    cmd = '%s -cp %s%s%s org.apache.hadoop.yarn.dmlc.Client '\
-          % (JAVA, classpath, ';' if is_windows else ':', YARN_JAR_PATH)
+    JAVA = 'java' if JAVA_HOME is None else os.path.join(JAVA_HOME, 'bin', 'java')
+    cmd = f"{JAVA} -cp {classpath}{';' if is_windows else ':'}{YARN_JAR_PATH} org.apache.hadoop.yarn.dmlc.Client "
     env = os.environ.copy()
     for k, v in pass_env.items():
         env[k] = str(v)
@@ -80,13 +78,13 @@ def yarn_submit(args, nworker, nserver, pass_env):
     # ship lib-stdc++.so
     if args.ship_libcxx is not None:
         if platform.architecture()[0] == '64bit':
-            libcxx = args.ship_libcxx + '/libstdc++.so.6'
+            libcxx = f'{args.ship_libcxx}/libstdc++.so.6'
         else:
-            libcxx = args.ship_libcxx + '/libstdc++.so'
+            libcxx = f'{args.ship_libcxx}/libstdc++.so'
         fset.add(libcxx)
         # update local LD_LIBRARY_PATH
         LD_LIBRARY_PATH = env['LD_LIBRARY_PATH'] if 'LD_LIBRARY_PATH' in env else ''
-        env['LD_LIBRARY_PATH'] = args.ship_libcxx + ':' + LD_LIBRARY_PATH
+        env['LD_LIBRARY_PATH'] = f'{args.ship_libcxx}:{LD_LIBRARY_PATH}'
 
     env['DMLC_JOB_CLUSTER'] = 'yarn'
     env['DMLC_WORKER_CORES'] = str(args.worker_cores)
@@ -98,14 +96,14 @@ def yarn_submit(args, nworker, nserver, pass_env):
     env['DMLC_JOB_ARCHIVES'] = ':'.join(ar_list)
 
     for f in fset:
-        cmd += ' -file %s' % f
-    cmd += ' -jobname %s ' % args.jobname
-    cmd += ' -tempdir %s ' % args.hdfs_tempdir
-    cmd += ' -queue %s ' % args.queue
+        cmd += f' -file {f}'
+    cmd += f' -jobname {args.jobname} '
+    cmd += f' -tempdir {args.hdfs_tempdir} '
+    cmd += f' -queue {args.queue} '
     if args.yarn_app_classpath:
-        cmd += ' -appcp %s ' % args.yarn_app_classpath
+        cmd += f' -appcp {args.yarn_app_classpath} '
     for entry in args.env:
-        cmd += ' -env %s ' % entry
+        cmd += f' -env {entry} '
     cmd += (' '.join(['./launcher.py'] + new_command))
 
     logging.debug("Submit job with %d workers and %d servers", nworker, nserver)

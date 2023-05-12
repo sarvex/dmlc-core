@@ -24,7 +24,7 @@ def config_logger(args):
     elif args.log_level == 'DEBUG':
         level = logging.DEBUG
     else:
-        raise RuntimeError("Unknown logging level %s" % args.log_level)
+        raise RuntimeError(f"Unknown logging level {args.log_level}")
 
     if args.log_file is None:
         logging.basicConfig(format=fmt, level=level)
@@ -53,4 +53,4 @@ def main():
     elif args.cluster == 'kubernetes':
         kubernetes.submit(args)
     else:
-        raise RuntimeError('Unknown submission cluster type %s' % args.cluster)
+        raise RuntimeError(f'Unknown submission cluster type {args.cluster}')

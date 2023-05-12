@@ -91,13 +91,13 @@ class SlaveEntry(object):
         for r in nnset:
             self.sock.sendint(r)
         # send prev link
-        if rprev != -1 and rprev != rank:
+        if rprev not in [-1, rank]:
             nnset.add(rprev)
             self.sock.sendint(rprev)
         else:
             self.sock.sendint(-1)
         # send next link
-        if rnext != -1 and rnext != rank:
+        if rnext not in [-1, rank]:
             nnset.add(rnext)
             self.sock.sendint(rnext)
         else:
@@ -109,10 +109,7 @@ class SlaveEntry(object):
                 goodset.add(self.sock.recvint())
             assert goodset.issubset(nnset)
             badset = nnset - goodset
-            conset = []
-            for r in badset:
-                if r in wait_conn:
-                    conset.append(r)
+            conset = [r for r in badset if r in wait_conn]
             self.sock.sendint(len(conset))
             self.sock.sendint(len(badset) - len(conset))
             for r in conset:
@@ -196,14 +193,12 @@ class RabitTracker(object):
         return a list starting from r
         """
         nset = set(tree_map[r])
-        cset = nset - set([parent_map[r]])
+        cset = nset - {parent_map[r]}
         if len(cset) == 0:
             return [r]
         rlst = [r]
-        cnt = 0
-        for v in cset:
+        for cnt, v in enumerate(cset, start=1):
             vlst = self.find_share_ring(tree_map, parent_map, v)
-            cnt += 1
             if cnt == len(cset):
                 vlst.reverse()
             rlst += vlst
@@ -237,18 +232,11 @@ class RabitTracker(object):
             k = ring_map[k][1]
             rmap[k] = i + 1
 
-        ring_map_ = {}
-        tree_map_ = {}
-        parent_map_ = {}
-        for k, v in ring_map.items():
-            ring_map_[rmap[k]] = (rmap[v[0]], rmap[v[1]])
-        for k, v in tree_map.items():
-            tree_map_[rmap[k]] = [rmap[x] for x in v]
-        for k, v in parent_map.items():
-            if k != 0:
-                parent_map_[rmap[k]] = rmap[v]
-            else:
-                parent_map_[rmap[k]] = -1
+        ring_map_ = {rmap[k]: (rmap[v[0]], rmap[v[1]]) for k, v in ring_map.items()}
+        tree_map_ = {rmap[k]: [rmap[x] for x in v] for k, v in tree_map.items()}
+        parent_map_ = {
+            rmap[k]: rmap[v] if k != 0 else -1 for k, v in parent_map.items()
+        }
         return tree_map_, parent_map_, ring_map_
 
     def accept_slaves(self, nslave):
@@ -276,7 +264,7 @@ class RabitTracker(object):
                 shutdown[s.rank] = s
                 logging.debug('Recieve %s signal from %d', s.cmd, s.rank)
                 continue
-            assert s.cmd == 'start' or s.cmd == 'recover'
+            assert s.cmd in ['start', 'recover']
             # lazily initialize the slaves
             if tree_map is None:
                 assert s.cmd == 'start'
@@ -286,7 +274,7 @@ class RabitTracker(object):
                 # set of nodes that is pending for getting up
                 todo_nodes = list(range(nslave))
             else:
-                assert s.world_size == -1 or s.world_size == nslave
+                assert s.world_size in [-1, nslave]
             if s.cmd == 'recover':
                 assert s.rank >= 0
 
@@ -380,10 +368,7 @@ class PSTracker(object):
                     'DMLC_PS_ROOT_PORT': self.port}
 
     def alive(self):
-        if self.cmd is not None:
-            return self.thread.is_alive()
-        else:
-            return False
+        return self.thread.is_alive() if self.cmd is not None else False
 
 
 def get_host_ip(hostIP=None):
@@ -417,7 +402,7 @@ def submit(nworker, nserver, fun_submit, hostIP='auto', pscmd=None):
 
     if nserver == 0:
         rabit = RabitTracker(hostIP=hostIP, nslave=nworker)
-        envs.update(rabit.slave_envs())
+        envs |= rabit.slave_envs()
         rabit.start(nworker)
         if rabit.alive():
            fun_submit(nworker, nserver, envs)
@@ -442,7 +427,7 @@ def start_rabit_tracker(args):
     envs = {'DMLC_NUM_WORKER' : args.num_workers,
             'DMLC_NUM_SERVER' : args.num_servers}
     rabit = RabitTracker(hostIP=get_host_ip(args.host_ip), nslave=args.num_workers)
-    envs.update(rabit.slave_envs())
+    envs |= rabit.slave_envs()
     rabit.start(args.num_workers)
     sys.stdout.write('DMLC_TRACKER_ENV_START\n')
     # simply write configuration to stdout
@@ -474,7 +459,7 @@ def main():
     elif args.log_level == 'DEBUG':
         level = logging.DEBUG
     else:
-        raise RuntimeError("Unknown logging level %s" % args.log_level)
+        raise RuntimeError(f"Unknown logging level {args.log_level}")
 
     logging.basicConfig(format=fmt, level=level)
 

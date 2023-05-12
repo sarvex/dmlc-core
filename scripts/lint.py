@@ -4,6 +4,7 @@
 
 Copyright by Contributors
 """
+
 from __future__ import print_function
 import argparse
 import codecs
@@ -14,8 +15,8 @@ import cpplint
 from cpplint import _cpplint_state
 from pylint import epylint
 
-CXX_SUFFIX = set(['cc', 'c', 'cpp', 'h', 'cu', 'hpp'])
-PYTHON_SUFFIX = set(['py'])
+CXX_SUFFIX = {'cc', 'c', 'cpp', 'h', 'cu', 'hpp'}
+PYTHON_SUFFIX = {'py'}
 
 def filepath_enumerate(paths):
     """Enumerate the file paths of all subfiles of the list of paths"""
@@ -25,8 +26,7 @@ def filepath_enumerate(paths):
             out.append(path)
         else:
             for root, dirs, files in os.walk(path):
-                for name in files:
-                    out.append(os.path.normpath(os.path.join(root, name)))
+                out.extend(os.path.normpath(os.path.join(root, name)) for name in files)
     return out
 
 # pylint: disable=useless-object-inheritance
@@ -59,7 +59,7 @@ class LintHelper(object):
         self.pylint_opts = ['--extension-pkg-whitelist=numpy',
                             '--disable=' + ','.join(pylint_disable)]
 
-        self.pylint_cats = set(['error', 'warning', 'convention', 'refactor'])
+        self.pylint_cats = {'error', 'warning', 'convention', 'refactor'}
         # setup cpp lint
         cpplint_args = ['--quiet', '--extensions=' + (','.join(CXX_SUFFIX)), '.']
         _ = cpplint.ParseArguments(cpplint_args)
@@ -141,9 +141,9 @@ def get_header_guard_dmlc(filename):
         if idx != -1:
             file_path_from_root = file_path_from_root[idx + 8:]
         for spath in inc_list:
-            prefix = spath + '/'
+            prefix = f'{spath}/'
             if file_path_from_root.startswith(prefix):
-                file_path_from_root = re.sub('^' + prefix, '', file_path_from_root)
+                file_path_from_root = re.sub(f'^{prefix}', '', file_path_from_root)
                 break
     return re.sub(r'[-./\s]', '_', file_path_from_root).upper() + '_'
 
@@ -153,7 +153,7 @@ def process(fname, allow_type):
     """Process a file."""
     fname = str(fname)
     arr = fname.rsplit('.', 1)
-    if fname.find('#') != -1 or arr[-1] not in allow_type:
+    if '#' in fname or arr[-1] not in allow_type:
         return
     if arr[-1] in CXX_SUFFIX:
         _HELPER.process_cpp(fname, arr[-1])
@@ -176,7 +176,7 @@ def main():
 
     _HELPER.project_name = args.project
     if args.pylint_rc is not None:
-        _HELPER.pylint_opts = ['--rcfile='+args.pylint_rc,]
+        _HELPER.pylint_opts = [f'--rcfile={args.pylint_rc}']
     file_type = args.filetype
     allow_type = []
     if file_type in ('python', 'all'):

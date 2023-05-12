@@ -12,7 +12,7 @@ from . import tracker
 def exec_cmd(cmd, num_attempt, role, taskid, pass_env):
     """Execute the command line command."""
     if cmd[0].find('/') == -1 and os.path.exists(cmd[0]) and os.name != 'nt':
-        cmd[0] = './' + cmd[0]
+        cmd[0] = f'./{cmd[0]}'
     cmdline = ' '.join(cmd)
     env = os.environ.copy()
     for k, v in pass_env.items():
@@ -41,7 +41,7 @@ def exec_cmd(cmd, num_attempt, role, taskid, pass_env):
             num_retry -= 1
 
             if num_retry >= 0:
-                cmdline = ' '.join(cmd + ['DMLC_NUM_ATTEMPT=' + str(num_trial)])
+                cmdline = ' '.join(cmd + [f'DMLC_NUM_ATTEMPT={num_trial}'])
                 continue
             if os.name == 'nt':
                 sys.exit(-1)
@@ -64,10 +64,7 @@ def submit(args):
         """
         procs = {}
         for i in range(nworker + nserver):
-            if i < nworker:
-                role = 'worker'
-            else:
-                role = 'server'
+            role = 'worker' if i < nworker else 'server'
             procs[i] = Thread(target=exec_cmd, args=(args.command, args.local_num_attempt, role, i, envs))
             procs[i].setDaemon(True)
             procs[i].start()

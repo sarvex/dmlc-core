@@ -11,33 +11,31 @@ def submit(args):
     if args.jobname is None:
         args.jobname = ('dmlc%d.' % args.num_workers) + args.command[0].split('/')[-1]
     if args.sge_log_dir is None:
-        args.sge_log_dir = args.jobname + '.log'
+        args.sge_log_dir = f'{args.jobname}.log'
 
     if os.path.exists(args.sge_log_dir):
         if not os.path.isdir(args.sge_log_dir):
-            raise RuntimeError('specified --sge-log-dir %s is not a dir' % args.sge_log_dir)
+            raise RuntimeError(f'specified --sge-log-dir {args.sge_log_dir} is not a dir')
     else:
         os.mkdir(args.sge_log_dir)
 
-    runscript = '%s/rundmlc.sh' % args.logdir
-    fo = open(runscript, 'w')
-    fo.write('source ~/.bashrc\n')
-    fo.write('export DMLC_TASK_ID=${SGE_TASK_ID}\n')
-    fo.write('export DMLC_JOB_CLUSTER=sge\n')
-    fo.write('\"$@\"\n')
-    fo.close()
-
+    runscript = f'{args.logdir}/rundmlc.sh'
+    with open(runscript, 'w') as fo:
+        fo.write('source ~/.bashrc\n')
+        fo.write('export DMLC_TASK_ID=${SGE_TASK_ID}\n')
+        fo.write('export DMLC_JOB_CLUSTER=sge\n')
+        fo.write('\"$@\"\n')
     def sge_submit(nworker, nserver, pass_envs):
         """Internal submission function."""
         env_arg = ','.join('%s=\"%s\"' % (k, str(v)) for k, v in pass_envs.items())
         cmd = 'qsub -cwd -t 1-%d -S /bin/bash' % (nworker + nserver)
         if args.queue != 'default':
-            cmd += '-q %s' % args.queue
-        cmd += ' -N %s ' % args.jobname
-        cmd += ' -e %s -o %s' % (args.logdir, args.logdir)
+            cmd += f'-q {args.queue}'
+        cmd += f' -N {args.jobname} '
+        cmd += f' -e {args.logdir} -o {args.logdir}'
         cmd += ' -pe orte %d' % (args.vcores)
         cmd += ' -v %s,PATH=${PATH}:.' % env_arg
-        cmd += ' %s %s' % (runscript, ' '.join(args.command))
+        cmd += f" {runscript} {' '.join(args.command)}"
         print(cmd)
         subprocess.check_call(cmd, shell=True)
         print('Waiting for the jobs to get up...')

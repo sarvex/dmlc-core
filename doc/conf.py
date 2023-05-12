@@ -123,7 +123,7 @@ todo_include_todos = False
 html_static_path = ['_static']
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = project + 'doc'
+htmlhelp_basename = f'{project}doc'
 
 # -- Options for LaTeX output ---------------------------------------------
 latex_elements = {
@@ -141,15 +141,15 @@ latex_documents = [
 def run_doxygen(folder):
     """Run the doxygen make command in the designated folder."""
     try:
-        retcode = subprocess.call("cd %s; make doxygen" % folder, shell=True)
+        retcode = subprocess.call(f"cd {folder}; make doxygen", shell=True)
         retcode = subprocess.call("rm -rf _build/html/doxygen", shell=True)
         retcode = subprocess.call("mkdir _build", shell=True)
         retcode = subprocess.call("mkdir _build/html", shell=True)
         retcode = subprocess.call("cp -rf doxygen/html _build/html/doxygen", shell=True)
         if retcode < 0:
-            sys.stderr.write("doxygen terminated by signal %s" % (-retcode))
+            sys.stderr.write(f"doxygen terminated by signal {-retcode}")
     except OSError as e:
-        sys.stderr.write("doxygen execution failed: %s" % e)
+        sys.stderr.write(f"doxygen execution failed: {e}")
 
 
 def generate_doxygen_xml(app):

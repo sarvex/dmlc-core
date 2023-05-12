@@ -15,10 +15,9 @@ def sync_dir(local_dir, slave_node, slave_dir):
     """
     sync the working directory from root node into slave node
     """
-    remote = slave_node[0] + ':' + slave_dir
+    remote = f'{slave_node[0]}:{slave_dir}'
     logging.info('rsync %s -> %s', local_dir, remote)
-    prog = 'rsync -az --rsh="ssh -o StrictHostKeyChecking=no -p %s" %s %s' % (
-        slave_node[1], local_dir, remote)
+    prog = f'rsync -az --rsh="ssh -o StrictHostKeyChecking=no -p {slave_node[1]}" {local_dir} {remote}'
     subprocess.check_call([prog], shell = True)
 
 def get_env(pass_envs):
@@ -29,10 +28,9 @@ def get_env(pass_envs):
     for k in keys:
         v = os.getenv(k)
         if v is not None:
-            envs.append('export ' + k + '=' + v + ';')
+            envs.append(f'export {k}={v};')
     # get ass_envs
-    for k, v in pass_envs.items():
-        envs.append('export ' + str(k) + '=' + str(v) + ';')
+    envs.extend(f'export {str(k)}={str(v)};' for k, v in pass_envs.items())
     return (' '.join(envs))
 
 def submit(args):
@@ -69,7 +67,7 @@ def submit(args):
             subprocess.check_call(prog, shell = True)
 
         # sync programs if necessary
-        local_dir = os.getcwd()+'/'
+        local_dir = f'{os.getcwd()}/'
         working_dir = local_dir
         if args.sync_dst_dir is not None and args.sync_dst_dir != 'None':
             working_dir = args.sync_dst_dir
@@ -78,15 +76,20 @@ def submit(args):
                 pool.apply_async(sync_dir, args=(local_dir, h, working_dir))
             pool.close()
             pool.join()
-            
+
 
         # launch jobs
         for i in range(nworker + nserver):
             pass_envs['DMLC_ROLE'] = 'server' if i < nserver else 'worker'
             (node, port) = hosts[i % len(hosts)]
             pass_envs['DMLC_NODE_HOST'] = node
-            prog = get_env(pass_envs) + ' cd ' + working_dir + '; ' + (' '.join(args.command))
-            prog = 'ssh -o StrictHostKeyChecking=no ' + node + ' -p ' + port + ' \'' + prog + '\''
+            prog = f'{get_env(pass_envs)} cd {working_dir}; ' + (' '.join(args.command))
+            prog = (
+                f'ssh -o StrictHostKeyChecking=no {node} -p {port}'
+                + ' \''
+                + prog
+                + '\''
+            )
             thread = Thread(target = run, args=(prog,))
             thread.setDaemon(True)
             thread.start()

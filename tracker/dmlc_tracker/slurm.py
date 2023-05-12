@@ -11,10 +11,7 @@ from . import tracker
 def get_mpi_env(envs):
     """get the slurm command for setting the environment
     """
-    cmd = ''
-    for k, v in envs.items():
-        cmd += '%s=%s ' % (k, str(v))
-    return cmd
+    return ''.join(f'{k}={str(v)} ' for k, v in envs.items())
 
 
 def submit(args):
